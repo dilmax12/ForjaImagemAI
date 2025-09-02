@@ -1,17 +1,4 @@
-// Função de upload de imagem
-function handleImageUpload(input, previewId) {
-    const file = input.files[0];
-    if (!file) return;
-
-    const preview = document.getElementById(previewId);
-    if (preview) {
-        preview.src = URL.createObjectURL(file);
-        preview.style.display = "block";
-        preview.style.height = "auto"; // evita erro de height
-    }
-}
-
-// Botão gerar imagem
+// Função para gerar imagem usando a Netlify Function
 async function generateImage() {
     const btn = document.getElementById("generateBtn");
     const spinner = btn.querySelector(".spinner");
@@ -19,35 +6,36 @@ async function generateImage() {
     const prompt = document.getElementById("prompt").value.trim();
 
     if (!prompt) {
-        alert("Digite algo para gerar a imagem/texto!");
+        alert("Por favor, digite uma descrição para gerar a imagem.");
         return;
     }
 
     spinner.style.display = "inline-block";
     btnText.textContent = "Gerando...";
 
+    const resultContainer = document.getElementById("resultPlaceholder");
+    resultContainer.innerHTML = `<div class="result-placeholder-icon">🎨</div><div>Gerando...</div>`;
+
     try {
-        // Chamando a função Netlify, que vai usar a API Key segura
         const response = await fetch("/.netlify/functions/generate", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ prompt })
         });
 
-        if (!response.ok) throw new Error("Falha na função do servidor.");
+        if (!response.ok) throw new Error("Erro na geração da imagem");
 
         const data = await response.json();
-        console.log("Resposta:", data);
 
-        // Exibir no painel direito
-        const resultContainer = document.getElementById("resultPlaceholder");
-        if (resultContainer) {
-            resultContainer.innerHTML = `<p>${data.result || "Nenhum resultado"}</p>`;
+        // Exibe a imagem gerada
+        if (data.imageUrl) {
+            resultContainer.innerHTML = `<img class="generated-image" src="${data.imageUrl}" alt="Imagem Gerada">`;
+        } else {
+            resultContainer.innerHTML = `<div class="result-placeholder-icon">❌</div><div>Não foi possível gerar a imagem.</div>`;
         }
-
     } catch (err) {
-        console.error("Erro:", err);
-        alert("Erro ao gerar imagem/texto. Verifique o console.");
+        console.error(err);
+        resultContainer.innerHTML = `<div class="result-placeholder-icon">❌</div><div>Erro ao gerar a imagem.</div>`;
     } finally {
         spinner.style.display = "none";
         btnText.textContent = "🚀 Gerar Imagem";
