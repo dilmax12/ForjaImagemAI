@@ -1,39 +1,74 @@
-import fetch from "node-fetch";
+const fetch = require('node-fetch');
 
-export async function handler(event, context) {
-    if (event.httpMethod !== "POST") {
-        return { statusCode: 405, body: "Method Not Allowed" };
+exports.handler = async (event, context) => {
+  try {
+    console.log('Received event:', event);
+    if (!event.body) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ error: 'No body provided in the request' })
+      };
     }
 
-    try {
-        const { prompt } = JSON.parse(event.body);
-
-        if (!prompt) {
-            return { statusCode: 400, body: "Prompt é obrigatório" };
-        }
-
-        const response = await fetch("https://openrouter.ai/api/v1/images/generations", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${process.env.OPENROUTER_API_KEY}`
-            },
-            body: JSON.stringify({
-                model: "openai/gpt-image-1",
-                prompt,
-                size: "1024x1024"
-            })
-        });
-
-        const data = await response.json();
-
-        return {
-            statusCode: 200,
-            body: JSON.stringify({ imageUrl: data.data?.[0]?.url })
-        };
-
-    } catch (err) {
-        console.error(err);
-        return { statusCode: 500, body: "Erro ao gerar imagem" };
+    const { prompt } = JSON.parse(event.body);
+    if (!prompt) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ error: 'Prompt is required' })
+      };
     }
-}
+
+    const apiKey = process.env.OPENROUTER_API_KEY;
+    if (!apiKey) {
+      console.error('OPENROUTER_API_KEY is not set');
+      return {
+        statusCode: 500,
+        body: JSON.stringify({ error: 'Server configuration error: API key missing' })
+      };
+    }
+
+    // Use the correct OpenRouter endpoint for image generation (hypothetical, adjust as per documentation)
+    const response = await fetch('https://openrouter.ai/api/v1/images/generations', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+        'User-Agent': 'ImagemMestraAI/1.0.0'
+      },
+      body: JSON.stringify({ prompt })
+    });
+
+    console.log('OpenRouter API response status:', response.status);
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('OpenRouter API error:', errorText);
+      return {
+        statusCode: response.status,
+        body: JSON.stringify({ error: `OpenRouter API error: ${errorText}` })
+      };
+    }
+
+    const data = await response.json();
+    console.log('OpenRouter API response data:', data);
+
+    // Adjust based on actual OpenRouter API response structure
+    if (!data.data || !data.data[0] || !data.data[0].url) {
+      console.error('Unexpected API response structure:', data);
+      return {
+        statusCode: 500,
+        body: JSON.stringify({ error: 'Invalid response from image generation API' })
+      };
+    }
+
+    return {
+      statusCode: 200,
+      body: JSON.stringify({ imageUrl: data.data[0].url })
+    };
+  } catch (error) {
+    console.error('Function error:', error.message, error.stack);
+    return {
+      statusCode: 500,
+      body: JSON.stringify({ error: `Server error: ${error.message}` })
+    };
+  }
+};
