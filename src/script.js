@@ -6,6 +6,12 @@ async function generateImage() {
   const loadingContainer = document.getElementById('loadingContainer');
   const imageContainer = document.getElementById('imageContainer');
   const generatedImage = document.getElementById('generatedImage');
+  const modalImage = document.getElementById('modalImage');
+
+  if (!prompt) {
+    alert('Por favor, descreva sua ideia no campo de prompt para forjar sua obra!');
+    return;
+  }
 
   try {
     spinner.style.display = 'inline-block';
@@ -15,33 +21,43 @@ async function generateImage() {
 
     const response = await fetch('/.netlify/functions/generate', {
       method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
       body: JSON.stringify({ prompt })
     });
-    const data = await response.json();
 
-    if (response.ok) {
-      generatedImage.src = data.imageUrl; // Adjust based on OpenRouter API response
-      imageContainer.style.display = 'block';
-    } else {
-      throw new Error(data.error || 'Failed to generate image');
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.error || `Erro na forja: ${response.status} ${response.statusText}`);
     }
+
+    // Adjust based on actual OpenRouter API response structure
+    const imageUrl = data.imageUrl;
+    if (!imageUrl) {
+      throw new Error('Nenhuma imagem foi forjada. Verifique o prompt ou tente novamente.');
+    }
+
+    generatedImage.src = imageUrl;
+    modalImage.src = imageUrl;
+    imageContainer.style.display = 'block';
   } catch (error) {
-    console.error('Error:', error);
-    alert('Erro ao forjar a imagem: ' + error.message);
+    console.error('Erro ao forjar a imagem:', error);
+    alert(`Falha na forja: ${error.message}. Tente novamente ou contate o mestre ferreiro!`);
   } finally {
     spinner.style.display = 'none';
     loadingContainer.style.display = 'none';
   }
 }
 
-// Placeholder for other functions (e.g., handleImageUpload, editCurrentImage, etc.)
 function handleImageUpload(input, previewId, index) {
   const file = input.files[0];
   if (file) {
     const reader = new FileReader();
     reader.onload = (e) => {
-      document.getElementById(previewId).src = e.target.result;
-      document.getElementById(previewId).style.display = 'block';
+      const preview = document.getElementById(previewId);
+      preview.src = e.target.result;
+      preview.style.display = 'block';
     };
     reader.readAsDataURL(file);
   }
@@ -53,29 +69,73 @@ function backToEditFunctions() {
 }
 
 function editCurrentImage() {
-  alert('Função de edição não implementada.');
+  document.getElementById('resultPlaceholder').style.display = 'none';
+  document.getElementById('imageContainer').style.display = 'none';
+  document.getElementById('editFunctions').style.display = 'block';
+  alert('Selecione uma função de edição para refinar sua obra!');
 }
 
 function downloadImage() {
   const generatedImage = document.getElementById('generatedImage');
-  const link = document.createElement('a');
-  link.href = generatedImage.src;
-  link.download = 'forjador_de_herois.png';
-  link.click();
+  if (generatedImage.src) {
+    const link = document.createElement('a');
+    link.href = generatedImage.src;
+    link.download = 'forjador_de_herois.png';
+    link.click();
+  } else {
+    alert('Nenhuma imagem para baixar!');
+  }
 }
 
 function editFromModal() {
-  alert('Edição a partir do modal não implementada.');
+  document.getElementById('mobileModal').style.display = 'none';
+  document.getElementById('resultPlaceholder').style.display = 'none';
+  document.getElementById('imageContainer').style.display = 'none';
+  document.getElementById('editFunctions').style.display = 'block';
+  alert('Selecione uma função de edição para refinar sua obra!');
 }
 
 function downloadFromModal() {
   const modalImage = document.getElementById('modalImage');
-  const link = document.createElement('a');
-  link.href = modalImage.src;
-  link.download = 'forjador_de_herois.png';
-  link.click();
+  if (modalImage.src) {
+    const link = document.createElement('a');
+    link.href = modalImage.src;
+    link.download = 'forjador_de_herois.png';
+    link.click();
+  } else {
+    alert('Nenhuma imagem para baixar!');
+  }
 }
 
 function newImageFromModal() {
   document.getElementById('mobileModal').style.display = 'none';
+  document.getElementById('resultPlaceholder').style.display = 'block';
+  document.getElementById('imageContainer').style.display = 'none';
+  document.getElementById('prompt').value = '';
 }
+
+// Handle mode toggle (Criar/Editar)
+document.querySelectorAll('.mode-btn').forEach(button => {
+  button.addEventListener('click', () => {
+    document.querySelectorAll('.mode-btn').forEach(btn => btn.classList.remove('active'));
+    button.classList.add('active');
+    const mode = button.getAttribute('data-mode');
+    document.getElementById('createFunctions').style.display = mode === 'create' ? 'block' : 'none';
+    document.getElementById('editFunctions').style.display = mode === 'edit' ? 'block' : 'none';
+    document.getElementById('twoImagesSection').style.display = 'none';
+  });
+});
+
+// Handle function cards
+document.querySelectorAll('.function-card').forEach(card => {
+  card.addEventListener('click', () => {
+    const section = card.closest('.functions-section');
+    section.querySelectorAll('.function-card').forEach(c => c.classList.remove('active'));
+    card.classList.add('active');
+    const requiresTwo = card.getAttribute('data-requires-two') === 'true';
+    if (requiresTwo) {
+      document.getElementById('editFunctions').style.display = 'none';
+      document.getElementById('twoImagesSection').style.display = 'block';
+    }
+  });
+});
